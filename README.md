@@ -122,7 +122,34 @@ This trains the Random Forest Classifier on the Air Quality dataset and saves `m
 
 ---
 
-## How to Run Each Component
+## 🐳 Deployment & Containerization (Docker)
+
+To simplify production deployment and avoid running multiple terminals manually, the entire real-time streaming pipeline is fully containerized using **Docker** and **Docker Compose**. 
+
+This allows you to deploy and launch the **Producer, Faust Streams Processor, and Predictions Consumer** concurrently with a single command.
+
+### 1. Build and Launch the Pipeline
+
+From the project root directory, run:
+```bash
+docker-compose up --build
+```
+
+### 2. What Docker handles automatically:
+1. **Self-Healing Model Training:** The container checks if `model.joblib` is present. If it is missing (since it's gitignored), it automatically runs `python train_model.py` to train the classifier and generate the serialized model file *before* booting up Faust.
+2. **Orchestrated Startup Delays:** The producer and consumer wait a few seconds for the Faust Streams Processor to establish its connection to Confluent Cloud and synchronize partitions, preventing message loss.
+3. **Graceful Logging:** Output from all 3 components is aggregated and printed to a single terminal with clear color-coded prefixes (`live-predictions-consumer`, `air-quality-producer`, `streams-processor`).
+
+### 3. Stop the Pipeline
+
+To stop the services and clean up containers, run:
+```bash
+docker-compose down
+```
+
+---
+
+## How to Run Each Component (Manual Local Method)
 
 Open **three separate terminals** side-by-side and run in order:
 

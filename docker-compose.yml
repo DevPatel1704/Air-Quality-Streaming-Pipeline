@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # ─── Faust Streams Processor ────────────────────────────────────────────────
+  streams-processor:
+    build: .
+    container_name: streams-processor
+    # Self-healing: Trains model offline if model.joblib is missing, then starts Faust worker
+    command: >
+      sh -c "
+      if [ ! -f model.joblib ]; then
+        echo '[DOCKER] model.joblib not found. Running train_model.py offline first...';
+        python train_model.py;
+      fi;
+      echo '[DOCKER] Starting Faust Streams Processor worker...';
+      faust -A streams_processor worker -l info
+      "
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER:-pkc-619z3.us-east1.gcp.confluent.cloud:9092}
+      - KAFKA_API_KEY=${KAFKA_API_KEY:-WTSUASSMYC4CWLXE}
+      - KAFKA_API_SECRET=${KAFKA_API_SECRET:-cfltEvilrvrmvCJYZ9A38PehtShO8A+6rfuebmSWd3xFyDmHUgVFQTU8eEPjkScw}
+    volumes:
+      - .:/app
+
+  # ─── Live Data Producer ────────────────────────────────────────────────────
+  producer:
+    build: .
+    container_name: air-quality-producer
+    # Wait for the processor to boot up before sending raw data
+    command: >
+      sh -c "
+      echo '[DOCKER] Waiting 10 seconds for Faust worker to initialize...';
+      sleep 10;
+      echo '[DOCKER] Starting Live Data Producer...';
+      python producer.py
+      "
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER:-pkc-619z3.us-east1.gcp.confluent.cloud:9092}
+      - KAFKA_API_KEY=${KAFKA_API_KEY:-WTSUASSMYC4CWLXE}
+      - KAFKA_API_SECRET=${KAFKA_API_SECRET:-cfltEvilrvrmvCJYZ9A38PehtShO8A+6rfuebmSWd3xFyDmHUgVFQTU8eEPjkScw}
+    volumes:
+      - .:/app
+    depends_on:
+      - streams-processor
+
+  # ─── Live Prediction Consumer ────────────────────────────────────────────────
+  consumer:
+    build: .
+    container_name: live-predictions-consumer
+    # Wait for predictions to start flowing
+    command: >
+      sh -c "
+      echo '[DOCKER] Waiting 12 seconds for pipeline initialization...';
+      sleep 12;
+      echo '[DOCKER] Starting Predictions Consumer...';
+      python consumer.py
+      "
+    environment:
+      - KAFKA_BROKER=${KAFKA_BROKER:-pkc-619z3.us-east1.gcp.confluent.cloud:9092}
+      - KAFKA_API_KEY=${KAFKA_API_KEY:-WTSUASSMYC4CWLXE}
+      - KAFKA_API_SECRET=${KAFKA_API_SECRET:-cfltEvilrvrmvCJYZ9A38PehtShO8A+6rfuebmSWd3xFyDmHUgVFQTU8eEPjkScw}
+    volumes:
+      - .:/app
+    depends_on:
+      - streams-processor
