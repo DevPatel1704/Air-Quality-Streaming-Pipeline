@@ -49,3 +49,4 @@ def get_faust_credentials() -> faust.SASLCredentials:
         mechanism="PLAIN",
     )
 
+ 
