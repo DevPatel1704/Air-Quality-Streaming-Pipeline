@@ -154,7 +154,8 @@ The producer will begin sending one row per second. You will see predictions app
 
 ## Video Demo
 
-[Link to video demo] — *(YouTube unlisted / Google Drive / OneDrive)*
+[Google Drive Video Demo Link](https://drive.google.com/file/d/1Kf6e2_etebyhaXlHWj6_xEJdcqEdFVzr/view?usp=sharing)
+
 
 ---
 
