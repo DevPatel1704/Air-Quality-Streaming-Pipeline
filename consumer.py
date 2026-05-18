@@ -27,13 +27,25 @@ def format_prediction(msg: dict, count: int) -> str:
     temp      = msg.get("temperature_C")
     humidity  = msg.get("humidity_pct")
 
-    co_str   = f"{co_meas:.2f} mg/m³" if co_meas is not None else "N/A"
-    pred_str = f"{predicted:.2f} mg/m³" if predicted is not None else "N/A"
+    # Gracefully format measured
+    try:
+        co_str = f"{float(co_meas):.2f} mg/m³" if co_meas is not None else "N/A"
+    except (ValueError, TypeError):
+        co_str = str(co_meas) if co_meas is not None else "N/A"
+
+    # Gracefully format predicted (handles legacy string values too)
+    try:
+        pred_str = f"{float(predicted):.2f} mg/m³" if predicted is not None else "N/A"
+    except (ValueError, TypeError):
+        pred_str = str(predicted) if predicted is not None else "N/A"
     
     err_str = "N/A"
-    if co_meas is not None and predicted is not None:
-        err = abs(co_meas - predicted)
-        err_str = f"{err:.2f} mg/m³"
+    try:
+        if co_meas is not None and predicted is not None:
+            err = abs(float(co_meas) - float(predicted))
+            err_str = f"{err:.2f} mg/m³"
+    except (ValueError, TypeError):
+        pass
 
     temp_str = f"{temp:.1f}C" if temp is not None else "N/A"
     hum_str  = f"{humidity:.1f}%" if humidity is not None else "N/A"
@@ -70,6 +82,7 @@ def main():
 
     count = 0
     total_error = 0.0
+    regression_count = 0
     try:
         for message in consumer:
             data = message.value
@@ -80,23 +93,31 @@ def main():
             
             meas = data.get("CO_measured")
             pred = data.get("CO_predicted")
-            if meas is not None and pred is not None:
-                total_error += abs(meas - pred)
+            try:
+                if meas is not None and pred is not None:
+                    meas_val = float(meas)
+                    pred_val = float(pred)
+                    total_error += abs(meas_val - pred_val)
+                    regression_count += 1
+            except (ValueError, TypeError):
+                # Ignore legacy classification messages that have strings for prediction
+                pass
 
             print(format_prediction(data, count))
 
             # Running MAE
             if count % 10 == 0:
-                running_mae = total_error / count
+                running_mae = (total_error / regression_count) if regression_count > 0 else 0.0
                 print(
-                    f"\n{BOLD}   Running MAE: {running_mae:.2f} mg/m³ {RESET}\n"
+                    f"\n{BOLD}   Running MAE: {running_mae:.2f} mg/m³ (computed over {regression_count} regression messages){RESET}\n"
                 )
 
     except KeyboardInterrupt:
-        final_mae = (total_error / count) if count > 0 else 0.0
+        final_mae = (total_error / regression_count) if regression_count > 0 else 0.0
         print(f"\n{CYAN}{'='*60}{RESET}")
         print(f"{BOLD}Consumer stopped.{RESET}")
         print(f"   Total predictions received : {count}")
+        print(f"   Processed regression msgs  : {regression_count}")
         print(f"   Average MAE                : {final_mae:.2f} mg/m³")
         print(f"{CYAN}{'='*60}{RESET}")
         sys.exit(0)
@@ -106,5 +127,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
  
