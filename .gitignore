@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+.env
+venv/
+.venv/
+
+*.zip
+*.joblib
+
+data/*.xlsx
+data/*.csv
