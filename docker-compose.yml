@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ─── Faust Streams Processor ────────────────────────────────────────────────
   streams-processor:
@@ -13,7 +11,7 @@ services:
         python train_model.py;
       fi;
       echo '[DOCKER] Starting Faust Streams Processor worker...';
-      faust -A streams_processor worker -l info
+      python streams_processor.py worker -l info
       "
     environment:
       - KAFKA_BROKER=${KAFKA_BROKER:-pkc-619z3.us-east1.gcp.confluent.cloud:9092}

@@ -9,8 +9,17 @@ that occurs on aiokafka >= 0.12 with faust-streaming 0.11.x.
 Import this module BEFORE importing faust.
 """
 
-from aiokafka.protocol.metadata import MetadataRequest as _AioMetadataRequest
+try:
+    from aiokafka.protocol.metadata import MetadataRequest as _AioMetadataRequest
+    NEEDS_PATCH = True
+except ImportError:
+    NEEDS_PATCH = False
+import typing
+import collections
 
+# Patch typing.OrderedDict for mode-streaming compatibility in Python 3.9+
+if not hasattr(typing, 'OrderedDict'):
+    typing.OrderedDict = collections.OrderedDict
 
 async def _patched_get_controller_node(self, owner, client, timeout=30000):
     """
@@ -40,6 +49,9 @@ async def _patched_get_controller_node(self, owner, client, timeout=30000):
 
 def apply():
     """Apply the monkey-patch to faust's Transport class."""
+    if not NEEDS_PATCH:
+        return
+        
     import faust.transport.drivers.aiokafka as _drv
     import types
 

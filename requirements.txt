@@ -3,7 +3,7 @@
 
 # ─── Kafka ────────────────────────────────────────────────────────────────────
 kafka-python==2.0.2          # Kafka producer & consumer
-faust-streaming==0.10.14     # Python Streams API (equivalent to Kafka Streams)
+faust-streaming==0.11.3     # Python Streams API (equivalent to Kafka Streams)
 
 # ─── ML & Data ────────────────────────────────────────────────────────────────
 scikit-learn==1.4.2          # Random Forest Classifier

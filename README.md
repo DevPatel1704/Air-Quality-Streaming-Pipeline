@@ -132,7 +132,7 @@ This allows you to deploy and launch the **Producer, Faust Streams Processor, an
 
 From the project root directory, run:
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 ### 2. What Docker handles automatically:
@@ -144,7 +144,7 @@ docker-compose up --build
 
 To stop the services and clean up containers, run:
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ---
