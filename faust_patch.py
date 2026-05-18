@@ -56,3 +56,4 @@ def apply():
     )
     print("Applied aiokafka compatibility patch.")
 
+ 
