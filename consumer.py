@@ -1,7 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Reads prediction results from 'air-quality-predictions' and prints them.
-Run with: python consumer.py
+consumer.py - Output Consumer
+==============================
+Reads prediction results from the 'air-quality-predictions' topic
+and prints each result to the console in a readable, colour-coded format.
+
+Usage:
+    python consumer.py
 """
 
 import json
@@ -14,48 +19,48 @@ from config import PREDICTIONS_TOPIC, get_kafka_config
 # ANSI colour codes for terminal output
 RESET  = "\033[0m"
 BOLD   = "\033[1m"
+GREEN  = "\033[92m"
+YELLOW = "\033[93m"
+RED    = "\033[91m"
 CYAN   = "\033[96m"
 GREY   = "\033[90m"
 
 
+def error_colour(error: float) -> str:
+    """Colour the error value based on magnitude."""
+    if error is None:
+        return GREY
+    if error < 0.5:
+        return GREEN
+    if error < 1.0:
+        return YELLOW
+    return RED
+
+
 def format_prediction(msg: dict, count: int) -> str:
     """Format a prediction message for human-readable console output."""
-    row_id    = msg.get("row_id", "?")
-    ts        = msg.get("timestamp", "")
-    co_meas   = msg.get("CO_measured")
-    predicted = msg.get("CO_predicted")
-    temp      = msg.get("temperature_C")
-    humidity  = msg.get("humidity_pct")
+    row_id   = msg.get("row_id", "?")
+    ts       = msg.get("timestamp", "")
+    co_meas  = msg.get("CO_measured")
+    co_pred  = msg.get("CO_predicted")
+    error    = msg.get("error")
+    temp     = msg.get("temperature_C")
+    humidity = msg.get("humidity_pct")
 
-    # Gracefully format measured
-    try:
-        co_str = f"{float(co_meas):.2f} mg/m³" if co_meas is not None else "N/A"
-    except (ValueError, TypeError):
-        co_str = str(co_meas) if co_meas is not None else "N/A"
+    co_meas_str = f"{co_meas:.2f} mg/m\u00b3" if co_meas  is not None else "N/A"
+    co_pred_str = f"{co_pred:.2f} mg/m\u00b3" if co_pred  is not None else "N/A"
+    error_str   = f"{error:.2f} mg/m\u00b3"   if error    is not None else "N/A"
+    temp_str    = f"{temp:.1f}C"               if temp     is not None else "N/A"
+    hum_str     = f"{humidity:.1f}%"           if humidity is not None else "N/A"
 
-    # Gracefully format predicted (handles legacy string values too)
-    try:
-        pred_str = f"{float(predicted):.2f} mg/m³" if predicted is not None else "N/A"
-    except (ValueError, TypeError):
-        pred_str = str(predicted) if predicted is not None else "N/A"
-    
-    err_str = "N/A"
-    try:
-        if co_meas is not None and predicted is not None:
-            err = abs(float(co_meas) - float(predicted))
-            err_str = f"{err:.2f} mg/m³"
-    except (ValueError, TypeError):
-        pass
-
-    temp_str = f"{temp:.1f}C" if temp is not None else "N/A"
-    hum_str  = f"{humidity:.1f}%" if humidity is not None else "N/A"
+    ec = error_colour(error)
 
     lines = [
         f"{CYAN}{'-'*60}{RESET}",
         f"{BOLD}[{count:>4}] Row {row_id}  {GREY}{ts}{RESET}",
-        f"  CO Measured  : {co_str}",
-        f"  CO Predicted : {pred_str}",
-        f"  Error        : {err_str}",
+        f"  CO Measured  : {co_meas_str}",
+        f"  CO Predicted : {BOLD}{co_pred_str}{RESET}",
+        f"  Error        : {ec}{error_str}{RESET}",
         f"  Conditions   : Temp {temp_str}  |  Humidity {hum_str}",
     ]
     return "\n".join(lines)
@@ -63,10 +68,10 @@ def format_prediction(msg: dict, count: int) -> str:
 
 def main():
     print(f"{BOLD}{CYAN}{'='*60}")
-    print("    Air Quality CO Level  Live Predictions Consumer")
+    print(" Air Quality CO Concentration Live Predictions Consumer")
     print(f"{'='*60}{RESET}")
-    print(f"Listening on topic: {BOLD}{PREDICTIONS_TOPIC}{RESET}")
-    print(f"Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f" Listening on topic: {BOLD}{PREDICTIONS_TOPIC}{RESET}")
+    print(f" Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     print(f"{GREY}(Press Ctrl+C to stop){RESET}\n")
 
     kafka_cfg = get_kafka_config()
@@ -80,9 +85,9 @@ def main():
         **{k: v for k, v in kafka_cfg.items() if k != "bootstrap_servers"},
     )
 
-    count = 0
+    count       = 0
     total_error = 0.0
-    regression_count = 0
+
     try:
         for message in consumer:
             data = message.value
@@ -90,35 +95,26 @@ def main():
                 data = json.loads(data)
 
             count += 1
-            
-            meas = data.get("CO_measured")
-            pred = data.get("CO_predicted")
-            try:
-                if meas is not None and pred is not None:
-                    meas_val = float(meas)
-                    pred_val = float(pred)
-                    total_error += abs(meas_val - pred_val)
-                    regression_count += 1
-            except (ValueError, TypeError):
-                # Ignore legacy classification messages that have strings for prediction
-                pass
+            err = data.get("error")
+            if err is not None:
+                total_error += err
 
             print(format_prediction(data, count))
 
-            # Running MAE
+            # Running MAE every 10 messages
             if count % 10 == 0:
-                running_mae = (total_error / regression_count) if regression_count > 0 else 0.0
+                running_mae = total_error / count
                 print(
-                    f"\n{BOLD}   Running MAE: {running_mae:.2f} mg/m³ (computed over {regression_count} regression messages){RESET}\n"
+                    f"\n{BOLD}  Running MAE: {running_mae:.3f} mg/m\u00b3 "
+                    f"(over {count} predictions){RESET}\n"
                 )
 
     except KeyboardInterrupt:
-        final_mae = (total_error / regression_count) if regression_count > 0 else 0.0
+        final_mae = (total_error / count) if count > 0 else 0.0
         print(f"\n{CYAN}{'='*60}{RESET}")
-        print(f"{BOLD}Consumer stopped.{RESET}")
-        print(f"   Total predictions received : {count}")
-        print(f"   Processed regression msgs  : {regression_count}")
-        print(f"   Average MAE                : {final_mae:.2f} mg/m³")
+        print(f"{BOLD} Consumer stopped.{RESET}")
+        print(f"  Total predictions received : {count}")
+        print(f"  Final MAE                  : {final_mae:.3f} mg/m\u00b3")
         print(f"{CYAN}{'='*60}{RESET}")
         sys.exit(0)
     finally:
@@ -127,4 +123,3 @@ def main():
 
 if __name__ == "__main__":
     main()
- 
