@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 consumer.py - Output Consumer
-==============================
 Reads prediction results from the 'air-quality-predictions' topic
 and prints each result to the console in a readable, colour-coded format.
 

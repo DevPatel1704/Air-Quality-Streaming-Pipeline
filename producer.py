@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 """
 producer.py - Kafka Producer
-=============================
 Reads rows from the Air Quality UCI dataset and publishes each row
 as a JSON message to the 'air-quality-raw' Kafka topic at ~1 row/second.
 

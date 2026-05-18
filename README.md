@@ -56,8 +56,7 @@ weighted avg       0.90      0.90      0.90      1535
 ```
 Project - 1/
 ├── data/
-│   ├── AirQualityUCI.csv     # UCI Air Quality dataset (downloaded)
-│   └── AirQualityUCI.xlsx    # Excel version (unused)
+│   └── AirQualityUCI.csv     # UCI Air Quality dataset (downloaded)
 ├── config.py                 # Kafka broker config (local or Confluent Cloud)
 ├── train_model.py            # Step 0: Offline ML training script
 ├── producer.py               # Step 1: Kafka producer (streams dataset at ~1 row/sec)
@@ -75,6 +74,9 @@ Project - 1/
 ### Prerequisites
 - Python 3.9+
 - Apache Kafka running locally **OR** a Confluent Cloud account
+
+### Step 0 — Download the Dataset
+Download the Air Quality dataset from https://archive.ics.uci.edu/dataset/360/air+quality and place the file `AirQualityUCI.csv` inside a `data/` folder in the project root. The expected path is `data/AirQualityUCI.csv`.
 
 ### 1. Install Dependencies
 
@@ -136,9 +138,9 @@ docker compose up --build
 ```
 
 ### 2. What Docker handles automatically:
-1. **Self-Healing Model Training:** The container checks if `model.joblib` is present. If it is missing (since it's gitignored), it automatically runs `python train_model.py` to train the classifier and generate the serialized model file *before* booting up Faust.
-2. **Orchestrated Startup Delays:** The producer and consumer wait a few seconds for the Faust Streams Processor to establish its connection to Confluent Cloud and synchronize partitions, preventing message loss.
-3. **Graceful Logging:** Output from all 3 components is aggregated and printed to a single terminal with clear color-coded prefixes (`live-predictions-consumer`, `air-quality-producer`, `streams-processor`).
+1. **Auto-trains the model if model.joblib is missing:** The container checks if `model.joblib` is present. If it is missing (since it's gitignored), it automatically runs `python train_model.py` to train the classifier and generate the serialized model file *before* booting up Faust.
+2. **Adds a short delay so Faust connects before the producer starts:** The producer and consumer wait a few seconds for the Faust Streams Processor to establish its connection to Confluent Cloud and synchronize partitions, preventing message loss.
+3. **Combines output from all 3 components in one terminal:** Output from all 3 components is aggregated and printed to a single terminal with clear color-coded prefixes (`live-predictions-consumer`, `air-quality-producer`, `streams-processor`).
 
 ### 3. Stop the Pipeline
 

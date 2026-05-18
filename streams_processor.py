@@ -1,13 +1,11 @@
 """
 streams_processor.py - Faust Streams Processor
-================================================
 Consumes raw air quality events from the 'air-quality-raw' topic,
 runs the pre-trained Random Forest model to predict CO level,
 and publishes results to the 'air-quality-predictions' topic.
 
 Usage:
     faust -A streams_processor worker -l info
-
     (or simply: python streams_processor.py worker -l info)
 """
 
@@ -26,14 +24,14 @@ from config import MODEL_FILE, RAW_TOPIC, PREDICTIONS_TOPIC, FAUST_BROKER, get_f
 
 warnings.filterwarnings("ignore", category=UserWarning)
 
-# ─── Load model at startup ────────────────────────────────────────────────────
-print(f"[LOAD] Loading model from: {MODEL_FILE}")
+# --- Load model at startup ---
+print(f"Loading model from {MODEL_FILE}...")
 _payload  = joblib.load(MODEL_FILE)
 MODEL     = _payload["model"]
 FEATURES  = _payload["features"]
-print(f"[OK] Model loaded. Features used: {len(FEATURES)}")
+print(f"Model loaded. Features used: {len(FEATURES)}")
 
-# ─── Faust App ────────────────────────────────────────────────────────────────
+# --- Faust App ---
 app = faust.App(
     "air-quality-processor",
     broker=FAUST_BROKER,
@@ -43,7 +41,7 @@ app = faust.App(
     topic_disable_leader=True,       # Skip leader-related admin calls
 )
 
-# ─── Topic Definitions ────────────────────────────────────────────────────────
+# --- Topic Definitions ---
 raw_topic         = app.topic(RAW_TOPIC,         value_type=bytes)
 predictions_topic = app.topic(PREDICTIONS_TOPIC, value_type=bytes)
 
@@ -59,11 +57,11 @@ def extract_features(event: dict) -> pd.DataFrame | None:
             row[feat] = float(val)
         return pd.DataFrame([row], columns=FEATURES)
     except Exception as e:
-        print(f"[WARN] Feature extraction error: {e}")
+        print(f"Feature extraction error: {e}")
         return None
 
 
-# ─── Faust Agent (Streams Processor) ─────────────────────────────────────────
+# --- Faust Agent (Streams Processor) ---
 @app.agent(raw_topic, sink=[predictions_topic])
 async def process_air_quality(stream):
     """

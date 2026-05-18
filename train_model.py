@@ -4,7 +4,6 @@ sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='repla
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
 train_model.py - Offline ML Model Training
-==========================================
 Trains a Random Forest Classifier to predict CO concentration level
 (Low / Medium / High) from air quality sensor readings.
 
@@ -23,7 +22,7 @@ from sklearn.preprocessing import LabelEncoder
 DATA_FILE = "data/AirQualityUCI.csv"
 MODEL_FILE = "model.joblib"
 
-# ─── CO Level Bins ────────────────────────────────────────────────────────────
+# --- CO Level Bins ---
 # CO(GT) is true hourly averaged CO concentration in mg/m³
 # We classify into 3 levels based on typical urban air quality thresholds
 CO_BINS   = [0, 1.5, 4.0, 100]
@@ -31,7 +30,7 @@ CO_LABELS = ["Low", "Medium", "High"]
 
 def load_and_clean(path: str) -> pd.DataFrame:
     """Load the UCI Air Quality CSV and clean it."""
-    print(f"[LOAD] Loading dataset from: {path}")
+    print(f"Loading dataset from {path}...")
     # The file uses semicolons as delimiters and commas for decimals (European format)
     df = pd.read_csv(path, sep=";", decimal=",", parse_dates=False)
 
@@ -54,7 +53,7 @@ def load_and_clean(path: str) -> pd.DataFrame:
     # Fill remaining NaN with column medians
     df.fillna(df.median(numeric_only=True), inplace=True)
 
-    print(f"[OK]   Cleaned dataset: {len(df)} rows, {df.shape[1]} columns")
+    print(f"Cleaned dataset: {len(df)} rows, {df.shape[1]} columns")
     return df
 
 
@@ -68,7 +67,7 @@ def create_target(df: pd.DataFrame) -> pd.DataFrame:
         right=True
     )
     df.dropna(subset=["CO_Level"], inplace=True)
-    print(f"\n[INFO] CO Level distribution:\n{df['CO_Level'].value_counts().to_string()}")
+    print(f"\nCO Level distribution:\n{df['CO_Level'].value_counts().to_string()}")
     return df
 
 
@@ -90,7 +89,7 @@ def train(df: pd.DataFrame):
 
     # Keep only columns that exist in the dataset
     available = [c for c in FEATURE_COLS if c in df.columns]
-    print(f"\n[INFO] Using {len(available)} features: {available}")
+    print(f"\nUsing {len(available)} features: {available}")
 
     X = df[available]
     y = df["CO_Level"].astype(str)
@@ -99,7 +98,7 @@ def train(df: pd.DataFrame):
         X, y, test_size=0.2, random_state=42, stratify=y
     )
 
-    print(f"\n[TRAIN] Training Random Forest Classifier...")
+    print(f"\nTraining Random Forest Classifier...")
     print(f"   Train size: {len(X_train)} | Test size: {len(X_test)}")
 
     model = RandomForestClassifier(
@@ -110,7 +109,7 @@ def train(df: pd.DataFrame):
     )
     model.fit(X_train, y_train)
 
-    # ─── Evaluation ──────────────────────────────────────────────────────────
+    # --- Evaluation ---
     y_pred = model.predict(X_test)
     acc = accuracy_score(y_test, y_pred)
     f1  = f1_score(y_test, y_pred, average="weighted")
@@ -123,7 +122,7 @@ def train(df: pd.DataFrame):
     print(f"\nClassification Report:")
     print(classification_report(y_test, y_pred, target_names=CO_LABELS))
 
-    # ─── Save ─────────────────────────────────────────────────────────────────
+    # --- Save ---
     payload = {
         "model": model,
         "features": available,
@@ -133,7 +132,7 @@ def train(df: pd.DataFrame):
         "f1_score": f1,
     }
     joblib.dump(payload, MODEL_FILE)
-    print(f"[SAVED] Model saved to: {MODEL_FILE}")
+    print(f"Model saved to {MODEL_FILE}")
     print(f"{'='*50}\n")
 
     return acc, f1
@@ -143,5 +142,5 @@ if __name__ == "__main__":
     df = load_and_clean(DATA_FILE)
     df = create_target(df)
     acc, f1 = train(df)
-    print("[DONE] Training complete! You can now run the pipeline.")
+    print("Done! Training complete! You can now run the pipeline.")
     print(f"   Accuracy: {acc*100:.2f}%  |  F1: {f1:.4f}")
