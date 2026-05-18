@@ -117,3 +117,4 @@ if __name__ == "__main__":
     rmse, mae, r2 = train(df)
     print("All done. Training complete! You can now run the pipeline.")
     print(f"   RMSE: {rmse:.4f}  |  MAE: {mae:.4f}  |  R2: {r2:.4f}")
+

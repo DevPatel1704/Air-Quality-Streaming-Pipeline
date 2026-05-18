@@ -48,3 +48,4 @@ def get_faust_credentials() -> faust.SASLCredentials:
         ssl_context=ssl.create_default_context(),
         mechanism="PLAIN",
     )
+

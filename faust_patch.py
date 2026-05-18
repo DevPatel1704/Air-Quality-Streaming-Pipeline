@@ -55,3 +55,4 @@ def apply():
         _drv.Transport,
     )
     print("Applied aiokafka compatibility patch.")
+
