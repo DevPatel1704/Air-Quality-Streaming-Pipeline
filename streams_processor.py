@@ -1,12 +1,7 @@
 """
-streams_processor.py - Faust Streams Processor
-Consumes raw air quality events from the 'air-quality-raw' topic,
-runs the pre-trained Random Forest model to predict CO level,
-and publishes results to the 'air-quality-predictions' topic.
+Consumes raw air quality events from 'air-quality-raw', runs the Random Forest Regressor to predict CO levels, and publishes numeric results to 'air-quality-predictions'.
 
-Usage:
-    faust -A streams_processor worker -l info
-    (or simply: python streams_processor.py worker -l info)
+Run with: python streams_processor.py worker -l info
 """
 
 # -*- coding: utf-8 -*-
@@ -29,7 +24,7 @@ print(f"Loading model from {MODEL_FILE}...")
 _payload  = joblib.load(MODEL_FILE)
 MODEL     = _payload["model"]
 FEATURES  = _payload["features"]
-print(f"Model loaded. Features used: {len(FEATURES)}")
+print(f"Model ready. Features used: {len(FEATURES)}")
 
 # --- Faust App ---
 app = faust.App(
@@ -57,7 +52,7 @@ def extract_features(event: dict) -> pd.DataFrame | None:
             row[feat] = float(val)
         return pd.DataFrame([row], columns=FEATURES)
     except Exception as e:
-        print(f"Feature extraction error: {e}")
+        print(f"Skipping row, couldn't extract features: {e}")
         return None
 
 
@@ -68,8 +63,8 @@ async def process_air_quality(stream):
     Faust agent that:
       1. Receives raw sensor messages from 'air-quality-raw'
       2. Extracts ML features
-      3. Runs the Random Forest model
-      4. Yields prediction results to 'air-quality-predictions'
+      3. Runs the Random Forest Regressor
+      4. Yields numeric prediction results to 'air-quality-predictions'
     """
     async for event in stream:
         # Deserialize if bytes
@@ -78,26 +73,20 @@ async def process_air_quality(stream):
 
         row_id   = event.get("row_id", "?")
         co_actual = event.get("CO(GT)", None)
-        actual_label = event.get("CO_Level_actual", "?")
 
         # Extract features and predict
         X = extract_features(event)
         if X is None:
             continue
 
-        predicted_label = MODEL.predict(X)[0]
-        proba           = MODEL.predict_proba(X)[0]
-        confidence      = float(round(max(proba) * 100, 2))
+        predicted_co = float(round(MODEL.predict(X)[0], 3))
 
         # Build prediction output message
         result = {
             "row_id":          row_id,
             "timestamp":       f"{event.get('Date', '')} {event.get('Time', '')}".strip(),
             "CO_measured":     round(float(co_actual), 3) if co_actual is not None else None,
-            "CO_actual_label": actual_label,
-            "CO_predicted":    predicted_label,
-            "confidence_pct":  confidence,
-            "correct":         predicted_label == actual_label,
+            "CO_predicted":    predicted_co,
             "temperature_C":   event.get("T"),
             "humidity_pct":    event.get("RH"),
             "features_used":   len(FEATURES),

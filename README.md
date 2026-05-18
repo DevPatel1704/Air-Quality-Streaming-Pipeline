@@ -27,27 +27,17 @@ A real-time streaming application built with **Apache Kafka** and **Faust** (Pyt
 
 | Property        | Value |
 |-----------------|-------|
-| Algorithm       | Random Forest Classifier |
-| Task            | Multi-class classification (Low / Medium / High CO level) |
+| Algorithm       | Random Forest Regressor |
+| Task            | Regression |
 | Features used   | 11 sensor readings (PT08.S1, C6H6, PT08.S2, NOx, PT08.S3, NO2, PT08.S4, PT08.S5, Temperature, Relative Humidity, Absolute Humidity) |
-| Target variable | CO(GT) binned into: Low (<1.5 mg/m³), Medium (1.5–4.0 mg/m³), High (>4.0 mg/m³) |
+| Target variable | CO(GT) in mg/m³ |
 | Training set    | 6,139 rows (80%) |
 | Test set        | 1,535 rows (20%) |
-| **Accuracy**    | **89.71%** |
-| **F1 Score**    | **0.8969 (weighted)** |
+| **RMSE**        | **0.58** |
+| **MAE**         | **0.36** |
+| **R²**          | **0.86** |
 
-### Detailed Classification Report
-
-```
-              precision    recall  f1-score   support
-         Low       0.88      0.80      0.83       162
-      Medium       0.93      0.90      0.91       635
-        High       0.88      0.92      0.90       738
-
-    accuracy                           0.90      1535
-   macro avg       0.89      0.87      0.88      1535
-weighted avg       0.90      0.90      0.90      1535
-```
+CO(GT) sensor readings are used directly as the regression target, predicting the actual concentration in mg/m³ for each incoming event.
 
 ---
 
@@ -138,9 +128,9 @@ docker compose up --build
 ```
 
 ### 2. What Docker handles automatically:
-1. **Auto-trains the model if model.joblib is missing:** The container checks if `model.joblib` is present. If it is missing (since it's gitignored), it automatically runs `python train_model.py` to train the classifier and generate the serialized model file *before* booting up Faust.
-2. **Adds a short delay so Faust connects before the producer starts:** The producer and consumer wait a few seconds for the Faust Streams Processor to establish its connection to Confluent Cloud and synchronize partitions, preventing message loss.
-3. **Combines output from all 3 components in one terminal:** Output from all 3 components is aggregated and printed to a single terminal with clear color-coded prefixes (`live-predictions-consumer`, `air-quality-producer`, `streams-processor`).
+1. **Auto-trains the model if model.joblib isn't found:** The container checks if `model.joblib` is present. If it is missing (since it's gitignored), it automatically runs `python train_model.py` to train the classifier and generate the serialized model file *before* booting up Faust.
+2. **Adds a short delay so Faust is ready before the producer starts sending:** The producer and consumer wait a few seconds for the Faust Streams Processor to establish its connection to Confluent Cloud and synchronize partitions, preventing message loss.
+3. **Shows output from all 3 components in one terminal with labels:** Output from all 3 components is aggregated and printed to a single terminal with clear color-coded prefixes (`live-predictions-consumer`, `air-quality-producer`, `streams-processor`).
 
 ### 3. Stop the Pipeline
 
@@ -197,30 +187,22 @@ The producer will begin sending one row per second. You will see predictions app
 
 **Producer (Terminal 3):**
 ```
-[   1] Sent row    0 | Date: 10/03/2004 02.00.00 | CO: 2.60 mg/m3 | Temp: 13.6C | Level: Medium
-[   2] Sent row    1 | Date: 10/03/2004 03.00.00 | CO: 2.00 mg/m3 | Temp: 13.3C | Level: Medium
+Sent row    0 | Date: 10/03/2004 02.00.00 | CO: 2.60 mg/m³ | Temp: 13.6C
+Sent row    1 | Date: 10/03/2004 03.00.00 | CO: 2.00 mg/m³ | Temp: 13.3C
 ```
 
 **Consumer (Terminal 2):**
 ```
 ------------------------------------------------------------
 [   1] Row 0  10/03/2004 02.00.00
-  CO Measured : 2.60 mg/m3
-  Predicted   : Medium  (confidence: 87.3%)
-  Actual      : Medium  [CORRECT]
-  Conditions  : Temp 13.6C  |  Humidity 48.9%
+  CO Measured  : 2.60 mg/m³
+  CO Predicted : 2.48 mg/m³
+  Error        : 0.12 mg/m³
+  Conditions   : Temp 13.6C  |  Humidity 48.9%
 ```
 
 ---
 
 ## Dependencies
 
-| Package           | Version  | Purpose                      |
-|-------------------|----------|------------------------------|
-| kafka-python      | 2.0.2+   | Kafka producer & consumer     |
-| faust-streaming   | 0.10.14+ | Python Streams API            |
-| scikit-learn      | 1.4.2+   | Random Forest Classifier      |
-| joblib            | 1.4.2+   | Model serialization           |
-| pandas            | 2.2.2+   | Data loading & preprocessing  |
-| numpy             | 1.26.4+  | Numerical operations          |
-| python-dotenv     | 1.0.1+   | Optional: .env file support   |
+See requirements.txt for the full list of dependencies.

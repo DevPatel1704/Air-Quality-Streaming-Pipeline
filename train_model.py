@@ -3,30 +3,19 @@ import sys, io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 """
-train_model.py - Offline ML Model Training
-Trains a Random Forest Classifier to predict CO concentration level
-(Low / Medium / High) from air quality sensor readings.
-
-Run this ONCE before starting the pipeline:
-    python train_model.py
+Trains a Random Forest Regressor to predict the actual CO concentration in mg/m³.
+Run with: python train_model.py
 """
 
 import pandas as pd
 import numpy as np
 import joblib
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, f1_score, classification_report
-from sklearn.preprocessing import LabelEncoder
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 
 DATA_FILE = "data/AirQualityUCI.csv"
 MODEL_FILE = "model.joblib"
-
-# --- CO Level Bins ---
-# CO(GT) is true hourly averaged CO concentration in mg/m³
-# We classify into 3 levels based on typical urban air quality thresholds
-CO_BINS   = [0, 1.5, 4.0, 100]
-CO_LABELS = ["Low", "Medium", "High"]
 
 def load_and_clean(path: str) -> pd.DataFrame:
     """Load the UCI Air Quality CSV and clean it."""
@@ -57,22 +46,8 @@ def load_and_clean(path: str) -> pd.DataFrame:
     return df
 
 
-def create_target(df: pd.DataFrame) -> pd.DataFrame:
-    """Bin CO(GT) into Low / Medium / High categories."""
-    df = df.copy()
-    df["CO_Level"] = pd.cut(
-        df["CO(GT)"],
-        bins=CO_BINS,
-        labels=CO_LABELS,
-        right=True
-    )
-    df.dropna(subset=["CO_Level"], inplace=True)
-    print(f"\nCO Level distribution:\n{df['CO_Level'].value_counts().to_string()}")
-    return df
-
-
 def train(df: pd.DataFrame):
-    """Train and evaluate the Random Forest Classifier."""
+    """Train and evaluate the Random Forest Regressor."""
     FEATURE_COLS = [
         "PT08.S1(CO)",
         "C6H6(GT)",
@@ -92,16 +67,16 @@ def train(df: pd.DataFrame):
     print(f"\nUsing {len(available)} features: {available}")
 
     X = df[available]
-    y = df["CO_Level"].astype(str)
+    y = df["CO(GT)"].astype(float)
 
     X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42, stratify=y
+        X, y, test_size=0.2, random_state=42
     )
 
-    print(f"\nTraining Random Forest Classifier...")
+    print(f"\nTraining Random Forest Regressor, this might take a sec...")
     print(f"   Train size: {len(X_train)} | Test size: {len(X_test)}")
 
-    model = RandomForestClassifier(
+    model = RandomForestRegressor(
         n_estimators=100,
         max_depth=10,
         random_state=42,
@@ -111,36 +86,34 @@ def train(df: pd.DataFrame):
 
     # --- Evaluation ---
     y_pred = model.predict(X_test)
-    acc = accuracy_score(y_test, y_pred)
-    f1  = f1_score(y_test, y_pred, average="weighted")
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+    mae = mean_absolute_error(y_test, y_pred)
+    r2 = r2_score(y_test, y_pred)
 
     print(f"\n{'='*50}")
     print(f"MODEL PERFORMANCE")
     print(f"{'='*50}")
-    print(f"  Accuracy  : {acc:.4f} ({acc*100:.2f}%)")
-    print(f"  F1 Score  : {f1:.4f} (weighted)")
-    print(f"\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=CO_LABELS))
+    print(f"  RMSE      : {rmse:.4f}")
+    print(f"  MAE       : {mae:.4f}")
+    print(f"  R2 Score  : {r2:.4f}")
 
     # --- Save ---
     payload = {
         "model": model,
         "features": available,
-        "co_bins": CO_BINS,
-        "co_labels": CO_LABELS,
-        "accuracy": acc,
-        "f1_score": f1,
+        "rmse": rmse,
+        "mae": mae,
+        "r2": r2,
     }
     joblib.dump(payload, MODEL_FILE)
-    print(f"Model saved to {MODEL_FILE}")
+    print(f"Saved to {MODEL_FILE}")
     print(f"{'='*50}\n")
 
-    return acc, f1
+    return rmse, mae, r2
 
 
 if __name__ == "__main__":
     df = load_and_clean(DATA_FILE)
-    df = create_target(df)
-    acc, f1 = train(df)
-    print("Done! Training complete! You can now run the pipeline.")
-    print(f"   Accuracy: {acc*100:.2f}%  |  F1: {f1:.4f}")
+    rmse, mae, r2 = train(df)
+    print("All done. Training complete! You can now run the pipeline.")
+    print(f"   RMSE: {rmse:.4f}  |  MAE: {mae:.4f}  |  R2: {r2:.4f}")

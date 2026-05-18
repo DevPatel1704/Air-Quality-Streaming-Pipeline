@@ -1,11 +1,6 @@
 """
-faust_patch.py - Compatibility patch for faust-streaming + aiokafka 0.14.x
-===========================================================================
-Patches faust's Transport._get_controller_node to use aiokafka's own
-MetadataRequest protocol class instead of kafka-python's, fixing the
-AttributeError: 'MetadataRequest_v1' object has no attribute 'prepare'
-that occurs on aiokafka >= 0.12 with faust-streaming 0.11.x.
-
+Compatibility patch for faust-streaming + aiokafka 0.14.x.
+Patches faust's Transport._get_controller_node to use aiokafka's own MetadataRequest.
 Import this module BEFORE importing faust.
 """
 
@@ -59,4 +54,4 @@ def apply():
         _patched_get_controller_node,
         _drv.Transport,
     )
-    print("[faust_patch] Applied aiokafka 0.14.x compatibility patch.")
+    print("Applied aiokafka compatibility patch.")
