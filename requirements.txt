@@ -1,0 +1,15 @@
+# Python dependencies for Air Quality Real-Time Streaming Pipeline
+# Install with: pip install -r requirements.txt
+
+# ─── Kafka ────────────────────────────────────────────────────────────────────
+kafka-python==2.0.2          # Kafka producer & consumer
+faust-streaming==0.10.14     # Python Streams API (equivalent to Kafka Streams)
+
+# ─── ML & Data ────────────────────────────────────────────────────────────────
+scikit-learn==1.4.2          # Random Forest Classifier
+joblib==1.4.2                # Model serialization
+pandas==2.2.2                # Dataset handling
+numpy==1.26.4                # Numerical operations
+
+# ─── Utilities ────────────────────────────────────────────────────────────────
+python-dotenv==1.0.1         # Optional: load .env for Confluent credentials
